@@ -13,10 +13,11 @@ const DATA_DIR = join(__dirname, '..', 'data');
  * @returns {import('better-sqlite3').Database}
  */
 export function createDb(filename) {
-  if (filename && filename !== ':memory:') {
-    mkdirSync(dirname(filename), { recursive: true });
+  const target = filename ?? join(DATA_DIR, 'app.sqlite');
+  if (target !== ':memory:') {
+    mkdirSync(dirname(target), { recursive: true });
   }
-  const db = new Database(filename ?? join(DATA_DIR, 'app.sqlite'));
+  const db = new Database(target);
   db.pragma('journal_mode = WAL');
   db.pragma('foreign_keys = ON');
   initSchema(db);
