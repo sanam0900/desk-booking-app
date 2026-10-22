@@ -24,12 +24,51 @@ architecture, conventions, and guardrails that AI tools must follow (e.g. "do no
 introduce OAuth", "keep business rules in the backend", "back-to-back bookings are
 allowed"). It was used to keep generated code aligned with the approved spec.
 
-## Feature implemented twice with two AI tools (MSc requirement) — TO BE COMPLETED
+## Feature implemented twice with two AI tools (MSc requirement)
 
-Planned: re-implement the booking **overlap check** (`isDeskFree` /
-`intervalsOverlap`, `backend/src/bookingRules.js`) with a second tool (Gemini) and
-compare the two implementations and their test results against the same AC2/AC3
-tests. _Not yet done — placeholder so it is not forgotten._
+**Feature:** the booking **overlap check** (`intervalsOverlap` / `isDeskFree`),
+which implements AC2 (reject overlapping bookings) and AC3 (allow back-to-back
+bookings). **Tools:** Claude Code (used to build the shipped version in
+`backend/src/bookingRules.js`) and Google Gemini (asked independently, without
+seeing the Claude version).
+
+Both implementations are run against the same edge cases in
+`backend/test/overlap-comparison.test.js` — 10 tests (5 per tool), all passing —
+so the comparison below is backed by a reproducible result.
+
+### Result: both correct, different structure
+
+Both tools independently produced the **same core algorithm**:
+`aStart < bEnd && bStart < aEnd` (strict `<`). Both correctly handle the critical
+boundary case — a booking that starts exactly when another ends is treated as
+*not* overlapping (AC3) — and both pass all five edge cases (overlap, back-to-back
+on each side, fully-contained, identical range). The convergence is itself useful
+evidence: the strict-`<` half-open interval is the standard correct solution, not a
+lucky choice by one tool.
+
+### Differences in results
+
+| Aspect | Claude Code (shipped) | Gemini |
+|---|---|---|
+| Overlap core | `aStart < bEnd && bStart < aEnd` | identical |
+| Time parsing | shared `parseTime()` helper reused across the module | inline `new Date(...).getTime()` inside `isDeskFree` |
+| Invalid input | handled separately in `validateSlot` (rejects NaN / past / start≥end) before the overlap check | assumes inputs already valid; stated this assumption explicitly |
+| Explanation | correct boundary reasoning | correct boundary reasoning **and** listed its assumptions (zero-duration not valid, single-desk scope) |
+| Integration | exported, layered into the backend module and API | two standalone functions |
+
+### Evaluation and decision
+
+The meaningful difference is **separation of concerns**, not correctness. Claude's
+version splits *validation* (`validateSlot`) from the *overlap rule*, so bad input
+(empty string, past time, start ≥ end) is rejected with a clear error before the
+overlap check ever runs — which the AC4/AC7 tests rely on. Gemini's version is more
+concise and was admirably explicit about its assumptions, but it pushes
+invalid-input handling onto the caller.
+
+**Kept:** the Claude version, because the project needs the validation layer to
+satisfy AC4/AC7 and to return specific error messages. Gemini's explicit
+assumption-listing was a good habit worth noting. Had the two cores disagreed on the
+boundary case, the comparison tests would have shown it immediately — they did not.
 
 ---
 
