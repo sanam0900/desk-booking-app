@@ -1,0 +1,16 @@
+{
+  "name": "desk-booking-backend",
+  "version": "0.1.0",
+  "description": "Express + SQLite backend for the Desk Booking App",
+  "type": "module",
+  "scripts": {
+    "dev": "node --watch src/server.js",
+    "start": "node src/server.js",
+    "test": "node --test"
+  },
+  "dependencies": {
+    "better-sqlite3": "^11.3.0",
+    "cors": "^2.8.5",
+    "express": "^4.21.0"
+  }
+}
