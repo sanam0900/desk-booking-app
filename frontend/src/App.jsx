@@ -41,13 +41,20 @@ export default function App() {
         {user && (
           <div className="user-bar">
             <span>
-              {user.username} {user.role === 'admin' && <em>(admin)</em>}
+              {user.username}
+              {user.role === 'admin' && <span className="role-pill">admin</span>}
             </span>
             <button onClick={handleLogout}>Log out</button>
           </div>
         )}
       </header>
-      {user ? <Dashboard user={user} /> : <AuthForm onAuthed={handleAuthed} />}
+      {user ? (
+        <Dashboard user={user} />
+      ) : (
+        <div className="auth-wrap">
+          <AuthForm onAuthed={handleAuthed} />
+        </div>
+      )}
     </div>
   );
 }
@@ -116,7 +123,7 @@ function Dashboard({ user }) {
 
   return (
     <div className="dashboard">
-      {message && <p className={message.type}>{message.text}</p>}
+      {message && <div className={`banner ${message.type}`}>{message.text}</div>}
       <BookingForm desks={desks} onDone={refresh} setMessage={setMessage} />
       <MyBookings bookings={bookings} onDone={refresh} setMessage={setMessage} />
       {user.role === 'admin' && <AdminDesks onDone={refresh} setMessage={setMessage} />}
@@ -128,6 +135,36 @@ function BookingForm({ desks, onDone, setMessage }) {
   const [deskId, setDeskId] = useState('');
   const [start, setStart] = useState('');
   const [end, setEnd] = useState('');
+
+  const DURATIONS = [
+    { label: '15 min', minutes: 15 },
+    { label: '30 min', minutes: 30 },
+    { label: '1 hr', minutes: 60 },
+    { label: '2 hr', minutes: 120 },
+  ];
+
+  // Format a Date as the 'YYYY-MM-DDTHH:mm' string a datetime-local expects,
+  // in local time (no UTC shift).
+  function toLocalInput(date) {
+    const pad = (n) => String(n).padStart(2, '0');
+    return (
+      `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}` +
+      `T${pad(date.getHours())}:${pad(date.getMinutes())}`
+    );
+  }
+
+  // Clicking a duration chip sets End = Start + minutes. If Start is empty,
+  // default it to the next quarter-hour so the pair is always valid.
+  function applyDuration(minutes) {
+    let base = start ? new Date(start) : null;
+    if (!base || Number.isNaN(base.getTime())) {
+      base = new Date();
+      base.setSeconds(0, 0);
+      base.setMinutes(Math.ceil((base.getMinutes() + 1) / 15) * 15);
+      setStart(toLocalInput(base));
+    }
+    setEnd(toLocalInput(new Date(base.getTime() + minutes * 60_000)));
+  }
 
   async function submit(e) {
     e.preventDefault();
@@ -145,8 +182,8 @@ function BookingForm({ desks, onDone, setMessage }) {
   }
 
   return (
-    <form className="card" onSubmit={submit}>
-      <h2>Book a desk</h2>
+    <form className="card span-2" onSubmit={submit}>
+      <h2>📅 Book a desk</h2>
       <label>
         Desk
         <select value={deskId} onChange={(e) => setDeskId(e.target.value)} required>
@@ -156,15 +193,30 @@ function BookingForm({ desks, onDone, setMessage }) {
           ))}
         </select>
       </label>
-      <label>
-        Start
-        <input type="datetime-local" value={start} onChange={(e) => setStart(e.target.value)} required />
-      </label>
-      <label>
-        End
-        <input type="datetime-local" value={end} onChange={(e) => setEnd(e.target.value)} required />
-      </label>
-      <button type="submit">Book</button>
+      <div className="field-row">
+        <label>
+          Start
+          <input type="datetime-local" value={start} onChange={(e) => setStart(e.target.value)} required />
+        </label>
+        <label>
+          End
+          <input type="datetime-local" value={end} onChange={(e) => setEnd(e.target.value)} required />
+        </label>
+      </div>
+      <div className="durations">
+        <span className="durations-label">Quick duration:</span>
+        {DURATIONS.map((d) => (
+          <button
+            key={d.minutes}
+            type="button"
+            className="chip"
+            onClick={() => applyDuration(d.minutes)}
+          >
+            {d.label}
+          </button>
+        ))}
+      </div>
+      <button type="submit">Book desk</button>
     </form>
   );
 }
@@ -183,17 +235,19 @@ function MyBookings({ bookings, onDone, setMessage }) {
 
   return (
     <div className="card">
-      <h2>My bookings</h2>
+      <h2>
+        🗓️ My bookings
+        {bookings.length > 0 && <span className="count">{bookings.length}</span>}
+      </h2>
       {bookings.length === 0 ? (
-        <p>No bookings yet.</p>
+        <p className="empty">No bookings yet — book a desk to get started.</p>
       ) : (
         <ul className="bookings">
           {bookings.map((b) => (
             <li key={b.id}>
               <span>
                 <strong>{b.deskName}</strong>
-                <br />
-                {formatRange(b.start, b.end)}
+                <div className="when">{formatRange(b.start, b.end)}</div>
               </span>
               <button onClick={() => cancel(b.id)}>Cancel</button>
             </li>
@@ -221,8 +275,8 @@ function AdminDesks({ onDone, setMessage }) {
   }
 
   return (
-    <form className="card admin" onSubmit={submit}>
-      <h2>Admin: add desk</h2>
+    <form className="card admin span-2" onSubmit={submit}>
+      <h2>⚙️ Admin: add desk</h2>
       <label>
         Desk name
         <input value={name} onChange={(e) => setName(e.target.value)} required />

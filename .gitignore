@@ -9,11 +9,13 @@ build/
 .env
 .env.local
 
-# Database (SQLite runtime file)
+# Database (SQLite runtime files, incl. WAL journal companions)
 *.sqlite
 *.sqlite3
 *.db
-backend/data/*.sqlite
+*.sqlite-shm
+*.sqlite-wal
+backend/data/
 
 # Logs
 *.log
