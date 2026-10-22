@@ -1,0 +1,30 @@
+# Dependencies
+node_modules/
+
+# Build output
+dist/
+build/
+
+# Environment
+.env
+.env.local
+
+# Database (SQLite runtime file)
+*.sqlite
+*.sqlite3
+*.db
+backend/data/*.sqlite
+
+# Logs
+*.log
+npm-debug.log*
+
+# OS
+.DS_Store
+
+# Editor
+.vscode/
+.idea/
+
+# Claude local settings (keep AGENTS.md and committed .claude config, ignore local overrides)
+.claude/settings.local.json
