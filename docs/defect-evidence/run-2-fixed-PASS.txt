@@ -1,0 +1,109 @@
+
+> desk-booking-backend@0.1.0 test
+> node --test
+
+TAP version 13
+# Subtest: AC1_successful_booking
+ok 1 - AC1_successful_booking
+  ---
+  duration_ms: 105.261042
+  ...
+# Subtest: AC2_overlap_rejected
+ok 2 - AC2_overlap_rejected
+  ---
+  duration_ms: 70.404042
+  ...
+# Subtest: AC3_back_to_back_allowed
+ok 3 - AC3_back_to_back_allowed
+  ---
+  duration_ms: 67.464666
+  ...
+# Subtest: AC4_past_booking_rejected
+ok 4 - AC4_past_booking_rejected
+  ---
+  duration_ms: 63.925334
+  ...
+# Subtest: AC5_own_cancellation_frees_desk
+ok 5 - AC5_own_cancellation_frees_desk
+  ---
+  duration_ms: 66.446833
+  ...
+# Subtest: AC6_unauthorized_cancellation_blocked
+ok 6 - AC6_unauthorized_cancellation_blocked
+  ---
+  duration_ms: 96.541834
+  ...
+# Subtest: AC7_invalid_input_rejected
+ok 7 - AC7_invalid_input_rejected
+  ---
+  duration_ms: 63.967125
+  ...
+# Subtest: AC8_booking_list_accuracy
+ok 8 - AC8_booking_list_accuracy
+  ---
+  duration_ms: 97.960959
+  ...
+# Subtest: auth_required_to_book
+ok 9 - auth_required_to_book
+  ---
+  duration_ms: 65.054833
+  ...
+# Subtest: Claude: AC2 overlap (12:30-13:30)
+ok 10 - Claude: AC2 overlap (12:30-13:30)
+  ---
+  duration_ms: 1.650291
+  ...
+# Subtest: Gemini: AC2 overlap (12:30-13:30)
+ok 11 - Gemini: AC2 overlap (12:30-13:30)
+  ---
+  duration_ms: 0.149209
+  ...
+# Subtest: Claude: AC3 back-to-back after (13:00-14:00)
+ok 12 - Claude: AC3 back-to-back after (13:00-14:00)
+  ---
+  duration_ms: 0.043791
+  ...
+# Subtest: Gemini: AC3 back-to-back after (13:00-14:00)
+ok 13 - Gemini: AC3 back-to-back after (13:00-14:00)
+  ---
+  duration_ms: 0.042584
+  ...
+# Subtest: Claude: AC3 back-to-back before (11:00-12:00)
+ok 14 - Claude: AC3 back-to-back before (11:00-12:00)
+  ---
+  duration_ms: 0.046
+  ...
+# Subtest: Gemini: AC3 back-to-back before (11:00-12:00)
+ok 15 - Gemini: AC3 back-to-back before (11:00-12:00)
+  ---
+  duration_ms: 0.382125
+  ...
+# Subtest: Claude: contained (12:15-12:45)
+ok 16 - Claude: contained (12:15-12:45)
+  ---
+  duration_ms: 0.053125
+  ...
+# Subtest: Gemini: contained (12:15-12:45)
+ok 17 - Gemini: contained (12:15-12:45)
+  ---
+  duration_ms: 0.037333
+  ...
+# Subtest: Claude: identical (12:00-13:00)
+ok 18 - Claude: identical (12:00-13:00)
+  ---
+  duration_ms: 0.248375
+  ...
+# Subtest: Gemini: identical (12:00-13:00)
+ok 19 - Gemini: identical (12:00-13:00)
+  ---
+  duration_ms: 0.478
+  ...
+1..19
+# tests 19
+# suites 0
+# pass 19
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 947.857125
