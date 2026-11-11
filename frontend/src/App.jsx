@@ -5,7 +5,6 @@ export default function App() {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
 
-  // On load, if a token exists, resolve the current user.
   useEffect(() => {
     if (!getToken()) {
       setLoading(false);
@@ -18,11 +17,6 @@ export default function App() {
       .finally(() => setLoading(false));
   }, []);
 
-  function handleAuthed(token, u) {
-    setToken(token);
-    setUser(u);
-  }
-
   async function handleLogout() {
     try {
       await api.logout();
@@ -32,42 +26,26 @@ export default function App() {
     }
   }
 
-  if (loading) return <p className="center">Loading…</p>;
+  if (loading) return <div className="boot"><div className="boot-logo">🪑</div></div>;
 
-  return (
-    <div className="container">
-      <header>
-        <h1>Desk Booking</h1>
-        {user && (
-          <div className="user-bar">
-            <span>
-              {user.username}
-              {user.role === 'admin' && <span className="role-pill">admin</span>}
-            </span>
-            <button onClick={handleLogout}>Log out</button>
-          </div>
-        )}
-      </header>
-      {user ? (
-        <Dashboard user={user} />
-      ) : (
-        <div className="auth-wrap">
-          <AuthForm onAuthed={handleAuthed} />
-        </div>
-      )}
-    </div>
-  );
+  if (!user) return <AuthScreen onAuthed={(token, u) => { setToken(token); setUser(u); }} />;
+
+  return <Shell user={user} onLogout={handleLogout} />;
 }
 
-function AuthForm({ onAuthed }) {
+/* ---------------- Auth ---------------- */
+
+function AuthScreen({ onAuthed }) {
   const [mode, setMode] = useState('login');
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
+  const [busy, setBusy] = useState(false);
 
   async function submit(e) {
     e.preventDefault();
     setError('');
+    setBusy(true);
     try {
       const res = mode === 'login'
         ? await api.login(username, password)
@@ -75,41 +53,63 @@ function AuthForm({ onAuthed }) {
       onAuthed(res.token, res.user);
     } catch (err) {
       setError(err.message);
+    } finally {
+      setBusy(false);
     }
   }
 
   return (
-    <form className="card" onSubmit={submit}>
-      <h2>{mode === 'login' ? 'Log in' : 'Register'}</h2>
-      <label>
-        Username
-        <input value={username} onChange={(e) => setUsername(e.target.value)} required />
-      </label>
-      <label>
-        Password
-        <input
-          type="password"
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
-          required
-        />
-      </label>
-      {error && <p className="error">{error}</p>}
-      <button type="submit">{mode === 'login' ? 'Log in' : 'Register'}</button>
-      <p className="switch">
-        {mode === 'login' ? 'No account?' : 'Have an account?'}{' '}
-        <a onClick={() => { setMode(mode === 'login' ? 'register' : 'login'); setError(''); }}>
-          {mode === 'login' ? 'Register' : 'Log in'}
-        </a>
-      </p>
-    </form>
+    <div className="auth-screen">
+      <div className="auth-visual">
+        <div className="auth-visual-inner">
+          <div className="brand-lg"><span className="logo">🪑</span> Desk Booking</div>
+          <h1>Reserve your spot,<br />without the clashes.</h1>
+          <p>See every desk's availability at a glance and book in two clicks.</p>
+          <ul className="auth-points">
+            <li>Live desk availability timeline</li>
+            <li>No double bookings, ever</li>
+            <li>Back-to-back slots welcome</li>
+          </ul>
+        </div>
+      </div>
+      <div className="auth-panel">
+        <form className="auth-form" onSubmit={submit}>
+          <h2>{mode === 'login' ? 'Welcome back' : 'Create your account'}</h2>
+          <p className="subtle">
+            {mode === 'login' ? 'Log in to manage your desk bookings.' : 'Register to start booking desks.'}
+          </p>
+          <label>
+            Username
+            <input value={username} onChange={(e) => setUsername(e.target.value)} required autoFocus />
+          </label>
+          <label>
+            Password
+            <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} required />
+          </label>
+          {error && <p className="error">{error}</p>}
+          <button type="submit" disabled={busy}>
+            {busy ? 'Please wait…' : mode === 'login' ? 'Log in' : 'Create account'}
+          </button>
+          <p className="switch">
+            {mode === 'login' ? "Don't have an account?" : 'Already have an account?'}{' '}
+            <a onClick={() => { setMode(mode === 'login' ? 'register' : 'login'); setError(''); }}>
+              {mode === 'login' ? 'Register' : 'Log in'}
+            </a>
+          </p>
+        </form>
+      </div>
+    </div>
   );
 }
 
-function Dashboard({ user }) {
+/* ---------------- Shell (sidebar + content) ---------------- */
+
+function Shell({ user, onLogout }) {
+  const [view, setView] = useState('book');
   const [desks, setDesks] = useState([]);
   const [bookings, setBookings] = useState([]);
   const [message, setMessage] = useState(null);
+  const [loading, setLoading] = useState(true);
 
   async function refresh() {
     const [d, b] = await Promise.all([api.listDesks(), api.listBookings()]);
@@ -118,63 +118,122 @@ function Dashboard({ user }) {
   }
 
   useEffect(() => {
-    refresh().catch((e) => setMessage({ type: 'error', text: e.message }));
+    refresh().catch((e) => setMessage({ type: 'error', text: e.message })).finally(() => setLoading(false));
   }, []);
 
+  useEffect(() => {
+    if (!message) return;
+    const t = setTimeout(() => setMessage(null), 4000);
+    return () => clearTimeout(t);
+  }, [message]);
+
+  const nav = [
+    { key: 'book', label: 'Book a desk', icon: '📅' },
+    { key: 'availability', label: 'Availability', icon: '🗓️' },
+    { key: 'mine', label: 'My bookings', icon: '🎫', badge: bookings.length },
+  ];
+  if (user.role === 'admin') nav.push({ key: 'admin', label: 'Manage desks', icon: '⚙️' });
+
   return (
-    <div className="dashboard">
-      {message && <div className={`banner ${message.type}`}>{message.text}</div>}
-      <BookingForm desks={desks} onDone={refresh} setMessage={setMessage} />
-      <MyBookings bookings={bookings} onDone={refresh} setMessage={setMessage} />
-      {user.role === 'admin' && <AdminDesks onDone={refresh} setMessage={setMessage} />}
+    <div className="layout">
+      <aside className="sidebar">
+        <div className="brand"><span className="logo">🪑</span><span>Desk Booking</span></div>
+        <nav>
+          {nav.map((n) => (
+            <button
+              key={n.key}
+              className={`nav-item ${view === n.key ? 'active' : ''}`}
+              onClick={() => setView(n.key)}
+            >
+              <span className="nav-icon">{n.icon}</span>
+              <span>{n.label}</span>
+              {n.badge > 0 && <span className="nav-badge">{n.badge}</span>}
+            </button>
+          ))}
+        </nav>
+        <div className="sidebar-foot">
+          <div className="avatar">{user.username.slice(0, 1).toUpperCase()}</div>
+          <div className="who-block">
+            <strong>{user.username}</strong>
+            <span>{user.role === 'admin' ? 'Administrator' : 'Member'}</span>
+          </div>
+          <button className="ghost icon-btn" title="Log out" onClick={onLogout}>⎋</button>
+        </div>
+      </aside>
+
+      <main className="content">
+        {message && <div className={`banner ${message.type}`}>{message.text}</div>}
+
+        {view === 'book' && (
+          <BookView desks={desks} loading={loading} onDone={refresh} setMessage={setMessage} />
+        )}
+        {view === 'availability' && <AvailabilityView desks={desks} />}
+        {view === 'mine' && (
+          <MyBookingsView bookings={bookings} loading={loading} onDone={refresh} setMessage={setMessage} />
+        )}
+        {view === 'admin' && user.role === 'admin' && (
+          <AdminView desks={desks} onDone={refresh} setMessage={setMessage} />
+        )}
+      </main>
     </div>
   );
 }
 
-function BookingForm({ desks, onDone, setMessage }) {
-  const [deskId, setDeskId] = useState('');
-  const [start, setStart] = useState('');
-  const [end, setEnd] = useState('');
+/* ---------------- Book view (timeline grid) ---------------- */
 
-  const DURATIONS = [
-    { label: '15 min', minutes: 15 },
-    { label: '30 min', minutes: 30 },
-    { label: '1 hr', minutes: 60 },
-    { label: '2 hr', minutes: 120 },
-  ];
+const DAY_START = 8;   // 08:00
+const DAY_END = 20;    // 20:00
+const HOURS = DAY_END - DAY_START;
 
-  // Format a Date as the 'YYYY-MM-DDTHH:mm' string a datetime-local expects,
-  // in local time (no UTC shift).
-  function toLocalInput(date) {
-    const pad = (n) => String(n).padStart(2, '0');
-    return (
-      `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}` +
-      `T${pad(date.getHours())}:${pad(date.getMinutes())}`
-    );
-  }
+function BookView({ desks, loading, onDone, setMessage }) {
+  const [date, setDate] = useState(() => new Date().toISOString().slice(0, 10));
+  const [rows, setRows] = useState([]);
+  const [sel, setSel] = useState(null); // { deskId, deskName, startH }
+  const [duration, setDuration] = useState(60);
+  const [loadingAvail, setLoadingAvail] = useState(true);
 
-  // Clicking a duration chip sets End = Start + minutes. If Start is empty,
-  // default it to the next quarter-hour so the pair is always valid.
-  function applyDuration(minutes) {
-    let base = start ? new Date(start) : null;
-    if (!base || Number.isNaN(base.getTime())) {
-      base = new Date();
-      base.setSeconds(0, 0);
-      base.setMinutes(Math.ceil((base.getMinutes() + 1) / 15) * 15);
-      setStart(toLocalInput(base));
+  async function load() {
+    setLoadingAvail(true);
+    try {
+      setRows(await api.availability(date));
+    } catch (e) {
+      setMessage({ type: 'error', text: e.message });
+    } finally {
+      setLoadingAvail(false);
     }
-    setEnd(toLocalInput(new Date(base.getTime() + minutes * 60_000)));
   }
 
-  async function submit(e) {
-    e.preventDefault();
+  useEffect(() => { load(); }, [date, desks]);
+
+  function hhmm(h) {
+    const hr = Math.floor(h);
+    const mn = Math.round((h - hr) * 60);
+    return `${String(hr).padStart(2, '0')}:${String(mn).padStart(2, '0')}`;
+  }
+
+  async function cancelBar(b, deskName) {
+    if (!window.confirm(`Cancel booking on ${deskName} at ${b.start.slice(11)}–${b.end.slice(11)}?`)) return;
     setMessage(null);
     try {
-      // datetime-local gives 'YYYY-MM-DDTHH:mm'; send as-is (local server tz).
-      await api.createBooking(Number(deskId), start, end);
-      setMessage({ type: 'success', text: 'Booking created.' });
-      setStart('');
-      setEnd('');
+      await api.cancelBooking(b.id);
+      setMessage({ type: 'success', text: 'Booking cancelled.' });
+      await load();
+      onDone();
+    } catch (err) {
+      setMessage({ type: 'error', text: err.message });
+    }
+  }
+
+  async function confirm() {
+    if (!sel) return;
+    const start = `${date}T${hhmm(sel.startH)}`;
+    const end = `${date}T${hhmm(sel.startH + duration / 60)}`;
+    setMessage(null);
+    try {
+      await api.createBooking(sel.deskId, start, end);
+      setMessage({ type: 'success', text: `Booked ${sel.deskName} · ${hhmm(sel.startH)}–${hhmm(sel.startH + duration / 60)}` });
+      setSel(null);
+      await load();
       onDone();
     } catch (err) {
       setMessage({ type: 'error', text: err.message });
@@ -182,46 +241,158 @@ function BookingForm({ desks, onDone, setMessage }) {
   }
 
   return (
-    <form className="card span-2" onSubmit={submit}>
-      <h2>📅 Book a desk</h2>
-      <label>
-        Desk
-        <select value={deskId} onChange={(e) => setDeskId(e.target.value)} required>
-          <option value="" disabled>Select a desk…</option>
-          {desks.map((d) => (
-            <option key={d.id} value={d.id}>{d.name}</option>
-          ))}
-        </select>
-      </label>
-      <div className="field-row">
-        <label>
-          Start
-          <input type="datetime-local" value={start} onChange={(e) => setStart(e.target.value)} required />
-        </label>
-        <label>
-          End
-          <input type="datetime-local" value={end} onChange={(e) => setEnd(e.target.value)} required />
-        </label>
+    <>
+      <PageHeader
+        title="Book a desk"
+        subtitle="Pick a slot on the timeline, choose a duration, and confirm."
+        right={<input type="date" value={date} onChange={(e) => setSel(null) || setDate(e.target.value)} />}
+      />
+
+      <div className="card timeline-card">
+        <div className="timeline-axis">
+          <span className="axis-spacer" />
+          <div className="axis-hours">
+            {Array.from({ length: HOURS + 1 }, (_, i) => (
+              <span key={i} className="axis-hour">{String(DAY_START + i).padStart(2, '0')}</span>
+            ))}
+          </div>
+        </div>
+
+        {loadingAvail ? (
+          <TimelineSkeleton />
+        ) : rows.length === 0 ? (
+          <p className="empty">No desks yet.</p>
+        ) : (
+          <div className="timeline">
+            {rows.map((d) => (
+              <div className="tl-row" key={d.id}>
+                <div className="tl-label">{d.name}</div>
+                <div className="tl-track">
+                  {/* hour cells (click to select) */}
+                  {Array.from({ length: HOURS }, (_, i) => {
+                    const h = DAY_START + i;
+                    const selected = sel && sel.deskId === d.id && Math.floor(sel.startH) === h;
+                    return (
+                      <button
+                        key={i}
+                        className={`tl-cell ${selected ? 'sel' : ''}`}
+                        style={{ left: `${(i / HOURS) * 100}%`, width: `${(1 / HOURS) * 100}%` }}
+                        onClick={() => setSel({ deskId: d.id, deskName: d.name, startH: h })}
+                        title={`${d.name} · ${String(h).padStart(2, '0')}:00`}
+                      />
+                    );
+                  })}
+                  {/* existing bookings as bars (click to cancel if yours/admin) */}
+                  {d.bookings.map((b, i) => {
+                    const s = toHours(b.start), e = toHours(b.end);
+                    const left = clampPct(s), right = clampPct(e);
+                    return (
+                      <div
+                        key={i}
+                        className={`tl-bar ${b.mine ? 'mine' : ''}`}
+                        style={{ left: `${left}%`, width: `${Math.max(right - left, 1)}%` }}
+                        title={b.mine ? `${b.start.slice(11)}–${b.end.slice(11)} · click to cancel` : `${b.start.slice(11)}–${b.end.slice(11)}`}
+                        onClick={b.mine ? () => cancelBar(b, d.name) : undefined}
+                      >
+                        {b.start.slice(11)}
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
-      <div className="durations">
-        <span className="durations-label">Quick duration:</span>
-        {DURATIONS.map((d) => (
-          <button
-            key={d.minutes}
-            type="button"
-            className="chip"
-            onClick={() => applyDuration(d.minutes)}
-          >
-            {d.label}
-          </button>
-        ))}
-      </div>
-      <button type="submit">Book desk</button>
-    </form>
+
+      {sel && (
+        <div className="card confirm-bar">
+          <div>
+            <span className="subtle">Selected</span>
+            <strong>{sel.deskName} · {String(Math.floor(sel.startH)).padStart(2, '0')}:00</strong>
+          </div>
+          <div className="dur-group">
+            {[15, 30, 60, 120].map((m) => (
+              <button key={m} className={`chip ${duration === m ? 'on' : ''}`} onClick={() => setDuration(m)}>
+                {m < 60 ? `${m}m` : `${m / 60}h`}
+              </button>
+            ))}
+          </div>
+          <div className="confirm-actions">
+            <button className="ghost" onClick={() => setSel(null)}>Cancel</button>
+            <button onClick={confirm}>Confirm booking</button>
+          </div>
+        </div>
+      )}
+    </>
   );
 }
 
-function MyBookings({ bookings, onDone, setMessage }) {
+function TimelineSkeleton() {
+  return (
+    <div className="timeline">
+      {[0, 1, 2].map((i) => (
+        <div className="tl-row" key={i}>
+          <div className="tl-label"><span className="shimmer sk-text" /></div>
+          <div className="tl-track"><span className="shimmer sk-bar" style={{ left: `${10 + i * 20}%`, width: '22%' }} /></div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+/* ---------------- Availability view ---------------- */
+
+function AvailabilityView({ desks }) {
+  const [date, setDate] = useState(() => new Date().toISOString().slice(0, 10));
+  const [rows, setRows] = useState([]);
+  const [error, setError] = useState('');
+
+  useEffect(() => {
+    api.availability(date).then((r) => { setRows(r); setError(''); }).catch((e) => setError(e.message));
+  }, [date, desks]);
+
+  const total = rows.length;
+  const free = rows.filter((d) => d.bookings.length === 0).length;
+
+  return (
+    <>
+      <PageHeader
+        title="Availability"
+        subtitle={total ? `${free} of ${total} desks free all day` : 'Desk availability by date'}
+        right={<input type="date" value={date} onChange={(e) => setDate(e.target.value)} />}
+      />
+      {error && <p className="error">{error}</p>}
+      <div className="avail-grid">
+        {rows.map((d) => (
+          <div className={`avail-card ${d.bookings.length ? 'busy' : 'free'}`} key={d.id}>
+            <div className="avail-top">
+              <strong>{d.name}</strong>
+              <span className={d.bookings.length ? 'tag busy' : 'tag free'}>
+                {d.bookings.length ? `${d.bookings.length} booked` : 'free'}
+              </span>
+            </div>
+            <div className="mini-track">
+              {d.bookings.map((b, i) => {
+                const left = clampPct(toHours(b.start)), right = clampPct(toHours(b.end));
+                return <span key={i} className="mini-bar" style={{ left: `${left}%`, width: `${Math.max(right - left, 2)}%` }} />;
+              })}
+            </div>
+            <div className="avail-slots">
+              {d.bookings.length === 0
+                ? <span className="subtle">Open all day</span>
+                : d.bookings.map((b, i) => <span className="slot" key={i}>{b.start.slice(11)}–{b.end.slice(11)}</span>)}
+            </div>
+          </div>
+        ))}
+      </div>
+    </>
+  );
+}
+
+/* ---------------- My bookings ---------------- */
+
+function MyBookingsView({ bookings, loading, onDone, setMessage }) {
   async function cancel(id) {
     setMessage(null);
     try {
@@ -234,31 +405,40 @@ function MyBookings({ bookings, onDone, setMessage }) {
   }
 
   return (
-    <div className="card">
-      <h2>
-        🗓️ My bookings
-        {bookings.length > 0 && <span className="count">{bookings.length}</span>}
-      </h2>
-      {bookings.length === 0 ? (
-        <p className="empty">No bookings yet — book a desk to get started.</p>
+    <>
+      <PageHeader title="My bookings" subtitle="Your upcoming desk reservations." />
+      {loading ? (
+        <div className="list">{[0, 1, 2].map((i) => <div className="row-sk shimmer" key={i} />)}</div>
+      ) : bookings.length === 0 ? (
+        <div className="empty-state">
+          <div className="empty-ico">🗓️</div>
+          <p>No bookings yet</p>
+          <span className="subtle">Head to “Book a desk” to reserve your first slot.</span>
+        </div>
       ) : (
-        <ul className="bookings">
+        <div className="list">
           {bookings.map((b) => (
-            <li key={b.id}>
-              <span>
+            <div className="booking-row" key={b.id}>
+              <div className="br-date">
+                <span className="br-day">{new Date(b.start).getDate()}</span>
+                <span className="br-mon">{new Date(b.start).toLocaleString([], { month: 'short' })}</span>
+              </div>
+              <div className="br-main">
                 <strong>{b.deskName}</strong>
-                <div className="when">{formatRange(b.start, b.end)}</div>
-              </span>
-              <button onClick={() => cancel(b.id)}>Cancel</button>
-            </li>
+                <span className="when">{formatRange(b.start, b.end)}</span>
+              </div>
+              <button className="danger" onClick={() => cancel(b.id)}>Cancel</button>
+            </div>
           ))}
-        </ul>
+        </div>
       )}
-    </div>
+    </>
   );
 }
 
-function AdminDesks({ onDone, setMessage }) {
+/* ---------------- Admin ---------------- */
+
+function AdminView({ desks, onDone, setMessage }) {
   const [name, setName] = useState('');
 
   async function submit(e) {
@@ -275,18 +455,47 @@ function AdminDesks({ onDone, setMessage }) {
   }
 
   return (
-    <form className="card admin span-2" onSubmit={submit}>
-      <h2>⚙️ Admin: add desk</h2>
-      <label>
-        Desk name
-        <input value={name} onChange={(e) => setName(e.target.value)} required />
-      </label>
-      <button type="submit">Add desk</button>
-    </form>
+    <>
+      <PageHeader title="Manage desks" subtitle="Add desks available for booking." />
+      <form className="card add-desk" onSubmit={submit}>
+        <label>
+          New desk name
+          <input value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. Desk C4" required />
+        </label>
+        <button type="submit">Add desk</button>
+      </form>
+      <div className="desk-chips">
+        {desks.map((d) => <span className="desk-chip" key={d.id}>{d.name}</span>)}
+      </div>
+    </>
   );
 }
 
+/* ---------------- Bits ---------------- */
+
+function PageHeader({ title, subtitle, right }) {
+  return (
+    <div className="page-head">
+      <div>
+        <h1>{title}</h1>
+        {subtitle && <p className="subtle">{subtitle}</p>}
+      </div>
+      {right && <div className="page-head-right">{right}</div>}
+    </div>
+  );
+}
+
+function toHours(s) {
+  // 'YYYY-MM-DDTHH:mm' -> fractional hours
+  const hh = Number(s.slice(11, 13));
+  const mm = Number(s.slice(14, 16));
+  return hh + mm / 60;
+}
+function clampPct(h) {
+  const pct = ((h - DAY_START) / HOURS) * 100;
+  return Math.max(0, Math.min(100, pct));
+}
 function formatRange(start, end) {
-  const fmt = (s) => new Date(s).toLocaleString();
+  const fmt = (s) => new Date(s).toLocaleString([], { hour: '2-digit', minute: '2-digit' });
   return `${fmt(start)} → ${fmt(end)}`;
 }

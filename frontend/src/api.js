@@ -37,6 +37,7 @@ export const api = {
   logout: () => request('/api/logout', { method: 'POST' }),
   me: () => request('/api/me'),
   listDesks: () => request('/api/desks'),
+  availability: (date) => request(`/api/desks/availability?date=${encodeURIComponent(date)}`),
   addDesk: (name) => request('/api/desks', { method: 'POST', body: { name } }),
   createBooking: (deskId, start, end) =>
     request('/api/bookings', { method: 'POST', body: { deskId, start, end } }),
