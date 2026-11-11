@@ -216,6 +216,31 @@ test('auth_required_to_book', async () => {
   assert.equal(res.status, 401);
 });
 
+// --- availability endpoint returns booked ranges for a date (times only) ---
+test('availability_lists_booked_ranges_for_date', async () => {
+  // Book a fixed future date so we can query it deterministically.
+  await api('/api/bookings', {
+    token: userToken,
+    method: 'POST',
+    body: { deskId, start: '2099-01-02T09:00', end: '2099-01-02T10:00' },
+  });
+  const res = await api('/api/desks/availability?date=2099-01-02', { token: userToken });
+  assert.equal(res.status, 200);
+  const desk = res.data.find((d) => d.id === deskId);
+  assert.equal(desk.bookings.length, 1);
+  assert.equal(desk.bookings[0].start, '2099-01-02T09:00');
+  // Exposes id + mine (for the cancel action) but never the raw user id / name.
+  assert.ok(typeof desk.bookings[0].id === 'number');
+  assert.equal(desk.bookings[0].mine, true);
+  assert.equal('user_id' in desk.bookings[0], false);
+  assert.equal('userId' in desk.bookings[0], false);
+});
+
+test('availability_requires_valid_date', async () => {
+  const res = await api('/api/desks/availability?date=nope', { token: userToken });
+  assert.equal(res.status, 400);
+});
+
 test.after(() => {
   server?.close();
 });

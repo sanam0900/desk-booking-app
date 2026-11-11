@@ -62,6 +62,38 @@ export function createApp(db) {
     res.json(db.prepare('SELECT id, name FROM desks ORDER BY name').all());
   });
 
+  // Read-only availability for a given date (YYYY-MM-DD): per desk, the booked
+  // time ranges on that date. No usernames are exposed — only each booking's id,
+  // its times, and whether it belongs to the requesting user (so the UI can offer
+  // a cancel action). The cancel action itself stays authorized server-side.
+  app.get('/api/desks/availability', requireAuth, (req, res) => {
+    const date = String(req.query.date ?? '');
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) {
+      return res.status(400).json({ error: 'A date (YYYY-MM-DD) is required.' });
+    }
+    const desks = db.prepare('SELECT id, name FROM desks ORDER BY name').all();
+    // start_time is stored as 'YYYY-MM-DDTHH:mm'; match the date prefix.
+    const bookingsForDesk = db.prepare(
+      `SELECT id, start_time AS start, end_time AS end, user_id
+         FROM bookings
+        WHERE desk_id = ? AND substr(start_time, 1, 10) = ?
+        ORDER BY start_time ASC`,
+    );
+    const canManage = (ownerId) => ownerId === req.user.id || req.user.role === 'admin';
+    res.json(
+      desks.map((d) => ({
+        id: d.id,
+        name: d.name,
+        bookings: bookingsForDesk.all(d.id, date).map((b) => ({
+          id: b.id,
+          start: b.start,
+          end: b.end,
+          mine: canManage(b.user_id), // true if the current user may cancel it
+        })),
+      })),
+    );
+  });
+
   // AC4 (admin): add a desk.
   app.post('/api/desks', requireAdmin, (req, res) => {
     const { name } = req.body ?? {};
